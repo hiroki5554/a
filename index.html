@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>習慣トラッカー</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0a;
+            --surface: #121212;
+            --surface-hover: #1a1a1a;
+            --border: #1e1e1e;
+            --border-checked: rgba(74, 222, 128, 0.28);
+            --text: #e8e8e8;
+            --text-dim: #888;
+            --text-muted: #444;
+            --green: #4ade80;
+            --green-glow: rgba(74, 222, 128, 0.12);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+            min-height: 100vh;
+            padding: 3.5rem 1.25rem 5rem;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        /* ── Header ── */
+        .header {
+            margin-bottom: 2.25rem;
+        }
+
+        .header h1 {
+            font-size: 1.3125rem;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.3rem;
+        }
+
+        .header .date {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 0.01em;
+        }
+
+        /* ── Progress ── */
+        .progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.875rem;
+        }
+
+        .progress-track {
+            flex: 1;
+            height: 2px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--green);
+            border-radius: 2px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .progress-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            min-width: 2.5rem;
+            text-align: right;
+        }
+
+        /* ── Habit list ── */
+        .habits {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        /* ── Habit card ── */
+        .habit-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1rem 1.125rem;
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            cursor: pointer;
+            user-select: none;
+            transition: border-color 0.3s ease, background 0.3s ease;
+        }
+
+        .habit-card:hover { background: var(--surface-hover); }
+
+        .habit-card.checked {
+            border-color: var(--border-checked);
+            background: linear-gradient(135deg, var(--surface), var(--green-glow));
+        }
+
+        /* ── Circle checkbox ── */
+        .check-btn {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            border: 1.5px solid #2c2c2c;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            cursor: pointer;
+            transition: border-color 0.25s, background 0.25s;
+        }
+
+        .check-btn.checked {
+            background: var(--green);
+            border-color: var(--green);
+        }
+
+        .check-icon {
+            opacity: 0;
+            transform: scale(0.4) rotate(-15deg);
+            transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .check-btn.checked .check-icon {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+
+        /* Burst ring */
+        .burst-ring {
+            position: absolute;
+            inset: -1px;
+            border-radius: 50%;
+            border: 2px solid var(--green);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .burst-ring.go {
+            animation: burst 0.55s ease-out forwards;
+        }
+
+        @keyframes burst {
+            0%   { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(2.6); opacity: 0; }
+        }
+
+        @keyframes pop {
+            0%   { transform: scale(1); }
+            45%  { transform: scale(1.22); }
+            100% { transform: scale(1); }
+        }
+
+        .check-btn.pop { animation: pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        /* ── Habit info ── */
+        .habit-info { flex: 1; min-width: 0; }
+
+        .habit-name {
+            font-size: 0.9375rem;
+            font-weight: 500;
+            margin-bottom: 0.45rem;
+            transition: color 0.25s, opacity 0.25s;
+        }
+
+        .habit-card.checked .habit-name {
+            color: var(--text-dim);
+            opacity: 0.6;
+        }
+
+        /* ── 7-day dots ── */
+        .week-row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .day-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: background 0.2s;
+        }
+
+        .dot.filled { background: var(--green); }
+
+        .dot.today-empty {
+            background: transparent;
+            border: 1.5px solid #3a3a3a;
+        }
+
+        .day-lbl {
+            font-size: 0.5625rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ── Streak badge ── */
+        .streak {
+            flex-shrink: 0;
+            text-align: center;
+            min-width: 2.5rem;
+        }
+
+        .streak-num {
+            font-size: 1.3125rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            color: #333;
+            transition: color 0.25s;
+        }
+
+        .streak-num.active { color: var(--green); }
+
+        .streak-lbl {
+            font-size: 0.5625rem;
+            color: var(--text-muted);
+            letter-spacing: 0.04em;
+            margin-top: 2px;
+        }
+
+        @keyframes bump {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.35); }
+            100% { transform: scale(1); }
+        }
+
+        .streak-num.bump { animation: bump 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>習慣トラッカー</h1>
+        <p class="date" id="date-display"></p>
+    </div>
+    <div class="progress-wrap">
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-label" id="progress-label">0 / 5</div>
+    </div>
+    <div class="habits" id="habits-list"></div>
+</div>
+
+<script>
+const HABITS = [
+    { id: 'exercise',   name: '運動' },
+    { id: 'reading',    name: '読書' },
+    { id: 'meditation', name: '瞑想' },
+    { id: 'water',      name: '水を飲む' },
+    { id: 'sleep',      name: '早起き' },
+];
+
+const DAY_JP = ['日','月','火','水','木','金','土'];
+
+function dateKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function todayKey() { return dateKey(new Date()); }
+
+function load() {
+    try { return JSON.parse(localStorage.getItem('ht_v1') || '{}'); } catch { return {}; }
+}
+
+function save(d) { localStorage.setItem('ht_v1', JSON.stringify(d)); }
+
+function calcStreak(checks) {
+    const today = new Date();
+    const tk = todayKey();
+    const startOffset = checks[tk] ? 0 : 1;
+    let n = 0;
+    for (let i = startOffset; i < 400; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        if (checks[dateKey(d)]) n++;
+        else break;
+    }
+    return n;
+}
+
+function last7(checks) {
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(today.getDate() - (6 - i));
+        const k = dateKey(d);
+        return { checked: !!checks[k], isToday: i === 6, dow: d.getDay() };
+    });
+}
+
+function renderAll(animateId = null) {
+    const data = load();
+    const tk = todayKey();
+
+    // Date header
+    document.getElementById('date-display').textContent =
+        new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+
+    // Progress
+    const done = HABITS.filter(h => !!(data[h.id] || {})[tk]).length;
+    document.getElementById('progress-fill').style.width = (done / HABITS.length * 100) + '%';
+    document.getElementById('progress-label').textContent = `${done} / ${HABITS.length}`;
+
+    const list = document.getElementById('habits-list');
+    list.innerHTML = '';
+
+    HABITS.forEach(habit => {
+        const checks = data[habit.id] || {};
+        const checked = !!checks[tk];
+        const streak = calcStreak(checks);
+        const days = last7(checks);
+
+        const card = document.createElement('div');
+        card.className = `habit-card${checked ? ' checked' : ''}`;
+
+        const dotsHtml = days.map(d => {
+            let cls = 'dot';
+            if (d.checked) cls += ' filled';
+            else if (d.isToday) cls += ' today-empty';
+            return `<div class="day-cell"><div class="${cls}"></div><div class="day-lbl">${DAY_JP[d.dow]}</div></div>`;
+        }).join('');
+
+        card.innerHTML = `
+            <button class="check-btn${checked ? ' checked' : ''}" aria-label="${habit.name}">
+                <svg class="check-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3.2 3.2L10 3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="burst-ring"></div>
+            </button>
+            <div class="habit-info">
+                <div class="habit-name">${habit.name}</div>
+                <div class="week-row">${dotsHtml}</div>
+            </div>
+            <div class="streak">
+                <div class="streak-num${streak > 0 ? ' active' : ''}">${streak}</div>
+                <div class="streak-lbl">日連続</div>
+            </div>`;
+
+        card.addEventListener('click', () => toggle(habit.id));
+        list.appendChild(card);
+
+        if (animateId === habit.id) {
+            requestAnimationFrame(() => {
+                const btn = card.querySelector('.check-btn');
+                const ring = card.querySelector('.burst-ring');
+                const sn = card.querySelector('.streak-num');
+
+                ring.classList.add('go');
+                ring.addEventListener('animationend', () => ring.classList.remove('go'), { once: true });
+
+                btn.classList.add('pop');
+                btn.addEventListener('animationend', () => btn.classList.remove('pop'), { once: true });
+
+                setTimeout(() => {
+                    sn.classList.add('bump');
+                    sn.addEventListener('animationend', () => sn.classList.remove('bump'), { once: true });
+                }, 120);
+            });
+        }
+    });
+}
+
+function toggle(id) {
+    const data = load();
+    const tk = todayKey();
+    if (!data[id]) data[id] = {};
+    const wasChecked = !!data[id][tk];
+    if (wasChecked) delete data[id][tk];
+    else data[id][tk] = true;
+    save(data);
+    renderAll(wasChecked ? null : id);
+}
+
+renderAll();
+
+// Refresh at midnight
+(function scheduleMidnight() {
+    const now = new Date();
+    const ms = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now;
+    setTimeout(() => { renderAll(); scheduleMidnight(); }, ms);
+})();
+</script>
+</body>
+</html>
